@@ -7,9 +7,18 @@ class Animalia:
 	var flag = {}
 
 	func _init():
-		arr.mutant = []
 		flag.stop = false
 		init_lairs()
+		preinit_mutant()
+
+	func preinit_mutant():
+		arr.mutant = []
+		arr.mutant_pool = []
+		var n = 1000
+		
+		for _i in n:
+			var mutant = Global.scene.mutant.instance()
+			arr.mutant_pool.append(mutant)
 
 	func init_lairs():
 		arr.lair = []
@@ -24,9 +33,9 @@ class Animalia:
 
 	func get_random_position():
 		Global.rng.randomize()
-		var x = Global.rng.randi_range(Global.num.lair.r, Global.obj.isle.vec.size.x-Global.num.lair.r)
+		var x = Global.rng.randi_range(Global.num.lair.d, Global.obj.isle.vec.size.x-Global.num.lair.d)
 		Global.rng.randomize()
-		var y = Global.rng.randi_range(Global.num.lair.r,Global.obj.isle.vec.size.y-Global.num.lair.r)
+		var y = Global.rng.randi_range(Global.num.lair.d,Global.obj.isle.vec.size.y-Global.num.lair.d)
 		return Vector2(x,y)
 
 	func tick(delta_):
@@ -68,7 +77,7 @@ class Lair:
 		
 		while !flag_:
 			Global.rng.randomize()
-			angle = Global.rng.randi_range(0, 360)
+			angle = Global.rng.randf_range(0, 360)/360
 			position = vec.position+Vector2(sin(angle),cos(angle))*r
 			flag_ = Global.obj.isle.check_position_on_board(position)
 		
@@ -76,20 +85,26 @@ class Lair:
 
 class Mutant:
 	var num = {}
-	var obj = {}
 	var vec = {}
+	var arr = {}
+	var obj = {}
 	var scene = {}
 
 	func _init(input_):
+		num.index = Global.num.primary_key.mutant
+		Global.num.primary_key.mutant += 1
 		obj.animalia = input_.animalia
+		obj.habitat = null
+		arr.flip = []
 		init_scenes(input_)
 		init_stat(input_)
 
 	func init_scenes(input_):
-		scene.mutant = Global.scene.mutant.instance()
+		scene.mutant = obj.animalia.arr.mutant_pool[num.index]
 		Global.node.animalia.add_child(scene.mutant)
 		scene.mutant.position = input_.position
 		scene.mutant.scale = Vector2(Global.num.mutant.d/Global.vec.mutant.size.x,Global.num.mutant.d/Global.vec.mutant.size.y)
+		get_habitat()
 
 	func init_stat(input_):
 		num.stat = {}
@@ -97,7 +112,7 @@ class Mutant:
 		num.stat.cargo.current = 0
 		num.stat.cargo.max = 100
 		num.stat.step = {}
-		num.stat.step.max = 10
+		num.stat.step.max = 100
 		num.stat.step.current = num.stat.step.max
 		
 		num.angle = {}
@@ -105,26 +120,63 @@ class Mutant:
 		num.angle.eye.current = input_.angle
 		num.angle.squint = {}
 		num.angle.squint.current = 0
-		num.angle.squint.max = 360/3
-		num.angle.squint.step = 360/36
-		print("@",num.angle.eye.current)
+		num.angle.squint.max = 8.0/360
+		num.angle.squint.step = 2.0/360
 		
-		vec.eye = Vector2(sin(num.angle.eye.current),cos(num.angle.eye.current))
-
-	func shift_gaze():
-		Global.rng.randomize()
-		var squint = Global.rng.randi_range(-num.angle.squint.step, num.angle.squint.step)
-		print("#",squint)
-		num.angle.squint.current += squint
-		
-		if abs(num.angle.squint.current) > num.angle.squint.max:
-			num.angle.squint.current = num.angle.squint.max*sign(num.angle.squint.current)
-		
-		num.angle.eye.current += num.angle.squint.current
-		print("@",num.angle.eye.current)
 		vec.eye = Vector2(sin(num.angle.eye.current),cos(num.angle.eye.current))
 
 	func move(delta_):
 		shift_gaze()
 		var step = vec.eye*num.stat.step.current*delta_
 		scene.mutant.position += step
+		#get_habitat()
+
+	func shift_gaze():
+		Global.rng.randomize()
+		var squint = Global.rng.randf_range(-num.angle.squint.step, num.angle.squint.step)
+		num.angle.squint.current += squint
+		#print("#",squint)
+#		if abs(num.angle.eye.current+squint) > num.angle.squint.max:
+#			squint = (num.angle.squint.max-abs(num.angle.eye.current))*sign(num.angle.eye.current)
+#
+#		num.angle.eye.current += squint
+		if abs(num.angle.squint.current) > num.angle.squint.max:
+			num.angle.squint.current = num.angle.squint.max*sign(num.angle.squint.current)
+			
+		num.angle.eye.current += num.angle.squint.current
+		vec.eye = Vector2(sin(num.angle.eye.current),cos(num.angle.eye.current))
+
+	func get_habitat():
+		obj.habitat = Global.obj.isle.get_habitat(scene.mutant.position)
+		if Global.obj.isle.check_grid_on_borderland(obj.habitat.vec.grid):
+			flip_angle()
+		else:
+			arr.flip = []
+		pass
+
+	func flip_angle():
+		var edge = Vector2()
+		
+		if obj.habitat.vec.grid.x == 0:
+			edge.x = -1
+		if obj.habitat.vec.grid.x == Global.num.isle.cols-1:
+			edge.x = 1
+		if obj.habitat.vec.grid.y == 0:
+			edge.y = -1
+		if obj.habitat.vec.grid.y == Global.num.isle.rows-1:
+			edge.y = 1
+		
+		if !arr.flip.has(edge):
+			arr.flip.append(edge)
+			
+			if edge.x != 0 && edge.y != 0:
+				num.angle.eye.current = PI*2-num.angle.eye.current
+			else:
+				if edge.y != 0:
+					num.angle.eye.current = -(num.angle.eye.current+PI)
+				if edge.x != 0:
+					num.angle.eye.current = -num.angle.eye.current
+		
+		num.angle.squint.current = 0
+		vec.eye = Vector2(sin(num.angle.eye.current),cos(num.angle.eye.current))
+

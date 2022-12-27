@@ -38,6 +38,7 @@ func init_num():
 
 func init_primary_key():
 	num.primary_key = {}
+	num.primary_key.mutant = 0
 
 func init_dict():
 	init_window_size()
@@ -51,7 +52,12 @@ func init_window_size():
 	OS.set_current_screen(1)
 
 func init_arr():
-	pass
+	arr.square = [
+		Vector2( 0, 0),
+		Vector2( 1, 0),
+		Vector2( 1, 1),
+		Vector2( 0, 1)
+	]
 
 func init_scene():
 	scene.lair = preload("res://scenes/Lair.tscn")
